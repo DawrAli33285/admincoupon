@@ -137,7 +137,7 @@ const CreateStore = () => {
       console.log('Submitting store data...');
       
       // Make API call with FormData
-      const response = await fetch('http://localhost:5000/admin/api/store', {
+      const response = await fetch('https://couponbackend.vercel.app/admin/api/store', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
