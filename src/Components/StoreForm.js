@@ -10,7 +10,8 @@ import {
   Plus,
   Trash2,
   X,
-  Globe
+  Globe,
+  Star
 } from 'lucide-react';
 
 const CreateStore = () => {
@@ -33,6 +34,7 @@ const CreateStore = () => {
     metaKeywords: '',
     networkName: '',
     isActive: true,
+    isFeatured: false,
     createdDate: new Date().toISOString().split('T')[0]
   });
 
@@ -72,7 +74,6 @@ const CreateStore = () => {
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
 
-    // Auto-generate slug from store name
     if (field === 'name' && value) {
       const slug = value.toLowerCase()
         .replace(/[^a-z0-9\s-]/g, '')
@@ -93,15 +94,13 @@ const CreateStore = () => {
         return;
       }
   
-      // Create FormData for multipart/form-data (required for file uploads)
       const form_data = new FormData();
       
-      // Append all form fields with backend property names
       form_data.append('name', formData.name);
       form_data.append('storeTitle', formData.storeTitle);
-      form_data.append('dealInfo', formData.storeDealInfo); // Frontend: storeDealInfo -> Backend: dealInfo
+      form_data.append('dealInfo', formData.storeDealInfo);
       form_data.append('description', formData.description);
-      form_data.append('storeAbout', formData.headingText); // Frontend: headingText -> Backend: storeAbout
+      form_data.append('storeAbout', formData.headingText);
       form_data.append('slug', formData.slug);
       form_data.append('websiteUrl', formData.websiteUrl);
       form_data.append('affiliateUrl', formData.affiliateUrl);
@@ -109,11 +108,10 @@ const CreateStore = () => {
       form_data.append('metaTitle', formData.metaTitle);
       form_data.append('metaDescription', formData.metaDescription);
       
-      // Handle metaKeywords array
       if (formData.metaKeywords) {
         const keywordsArray = formData.metaKeywords.split(',').map(keyword => keyword.trim());
         keywordsArray.forEach((keyword, index) => {
-          if (keyword) { // Only add non-empty keywords
+          if (keyword) {
             form_data.append(`metaKeywords[${index}]`, keyword);
           }
         });
@@ -121,27 +119,22 @@ const CreateStore = () => {
       
       form_data.append('networkName', formData.networkName);
       form_data.append('isActive', formData.isActive);
+      form_data.append('isFeatured', formData.isFeatured);
       
-      // Handle file upload (logo)
       if (selectedFile) {
-        form_data.append('logo', selectedFile); // Assuming the backend expects 'logo' field name
+        form_data.append('logo', selectedFile);
       }
       
-      // Handle FAQs array
       const validFaqs = faqs.filter(faq => faq.question.trim() && faq.answer.trim());
       validFaqs.forEach((faq, index) => {
         form_data.append(`faq[${index}][question]`, faq.question.trim());
         form_data.append(`faq[${index}][answer]`, faq.answer.trim());
       });
   
-      console.log('Submitting store data...');
-      
-      // Make API call with FormData
       const response = await fetch('https://couponbackend.vercel.app/admin/api/store', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          // Don't set Content-Type header for FormData - browser will set it with boundary
         },
         body: form_data
       });
@@ -152,36 +145,12 @@ const CreateStore = () => {
       }
   
       const result = await response.json();
-      console.log('Store created successfully:', result);
       alert('Store created successfully!');
-      
-      // Reset form after successful submission
-      setFormData({
-        name: '',
-        storeTitle: '',
-        storeDealInfo: '',
-        description: '',
-        headingText: '',
-        slug: '',
-        websiteUrl: '',
-        affiliateUrl: '',
-        category: '',
-        metaTitle: '',
-        metaDescription: '',
-        metaKeywords: '',
-        networkName: '',
-        isActive: true,
-        createdDate: new Date().toISOString().split('T')[0]
-      });
-      
-      // Reset file and FAQs if you have state setters for them
-      // setSelectedFile(null);
-      // setFaqs([{ question: '', answer: '' }]);
+      resetForm();
   
     } catch (error) {
       console.error('Error creating store:', error);
       
-      // Handle specific error cases
       if (error.message.includes('401')) {
         alert('Authentication failed. Please login again.');
       } else if (error.message.includes('400')) {
@@ -208,6 +177,7 @@ const CreateStore = () => {
       metaKeywords: '',
       networkName: '',
       isActive: true,
+      isFeatured: false,
       createdDate: new Date().toISOString().split('T')[0]
     });
     setSelectedFile(null);
@@ -256,9 +226,7 @@ const CreateStore = () => {
                 <p className="text-sm text-gray-500 mt-1">A store name is required and recommended to be unique.</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Store Title
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Store Title</label>
                 <input
                   type="text"
                   value={formData.storeTitle}
@@ -266,12 +234,8 @@ const CreateStore = () => {
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                   placeholder="Display title for store"
                 />
-
-                {/* Live Preview */}
                 {formData.storeTitle && (
-                  <h1 className="mt-4 text-2xl font-bold text-gray-900">
-                    {formData.storeTitle}
-                  </h1>
+                  <h1 className="mt-4 text-2xl font-bold text-gray-900">{formData.storeTitle}</h1>
                 )}
               </div>
             </div>
@@ -297,26 +261,12 @@ const CreateStore = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Store Description / About</label>
-              <div className="border border-gray-300 rounded-lg">
-                <div className="border-b border-gray-200 px-4 py-2 bg-gray-50">
-                  <div className="flex items-center space-x-2">
-                    <select className="text-sm border-none bg-transparent focus:ring-0 focus:outline-none">
-                      <option>Normal</option>
-                    </select>
-                    <div className="flex items-center space-x-1 text-gray-600">
-                      <button type="button" className="p-1 hover:bg-gray-200 rounded"><strong>B</strong></button>
-                      <button type="button" className="p-1 hover:bg-gray-200 rounded"><em>I</em></button>
-                      <button type="button" className="p-1 hover:bg-gray-200 rounded"><u>U</u></button>
-                    </div>
-                  </div>
-                </div>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => handleInputChange('description', e.target.value)}
-                  className="w-full px-4 py-3 border-none focus:ring-0 focus:outline-none resize-none h-32"
-                  placeholder="Improve store visibility by adding a compelling description."
-                />
-              </div>
+              <textarea
+                value={formData.description}
+                onChange={(e) => handleInputChange('description', e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all resize-none h-32"
+                placeholder="Improve store visibility by adding a compelling description."
+              />
             </div>
           </div>
         );
@@ -386,8 +336,8 @@ const CreateStore = () => {
                 />
                 <p className="text-sm text-gray-500 mt-1">yoursite.com/{formData.slug || 'store-slug'}</p>
               </div>
-              <div>
-                <label className="flex items-center space-x-2 mb-4">
+              <div className="space-y-3">
+                <label className="flex items-center space-x-2">
                   <input
                     type="checkbox"
                     checked={formData.isActive}
@@ -396,6 +346,19 @@ const CreateStore = () => {
                   />
                   <span className="text-sm font-medium text-gray-700">Active Status</span>
                 </label>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={formData.isFeatured}
+                    onChange={(e) => handleInputChange('isFeatured', e.target.checked)}
+                    className="rounded border-gray-300 text-yellow-600 focus:ring-yellow-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                    <Star className="w-4 h-4 text-yellow-500" />
+                    Featured Store
+                  </span>
+                </label>
+                <p className="text-xs text-gray-500">Featured stores appear prominently on the homepage</p>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -554,16 +517,13 @@ const CreateStore = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="w-full px-2 py-4 sm:px-3 lg:px-4">
-        {/* Header */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Store Form</h1>
         </div>
 
-        {/* Main Container */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          {/* Steps Navigation */}
           <div className="border-b border-gray-200 p-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between overflow-x-auto">
               {steps.map((step, index) => {
                 const StepIcon = step.icon;
                 const isActive = currentStep === step.id;
@@ -571,19 +531,14 @@ const CreateStore = () => {
                 return (
                   <div key={step.id} className="flex items-center">
                     <div
-                      className={`flex items-center cursor-pointer ${isActive ? 'text-blue-600' : isCompleted ? 'text-green-600' : 'text-gray-400'
-                        }`}
+                      className={`flex items-center cursor-pointer ${isActive ? 'text-blue-600' : isCompleted ? 'text-green-600' : 'text-gray-400'}`}
                       onClick={() => setCurrentStep(step.id)}
                     >
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 mr-3 ${isActive ? 'border-blue-600 bg-blue-50' :
-                        isCompleted ? 'border-green-600 bg-green-50' :
-                          'border-gray-300 bg-gray-50'
-                        }`}>
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 mr-3 ${isActive ? 'border-blue-600 bg-blue-50' : isCompleted ? 'border-green-600 bg-green-50' : 'border-gray-300 bg-gray-50'}`}>
                         <StepIcon className="w-5 h-5" />
                       </div>
                       <div className="hidden md:block">
-                        <div className={`text-sm font-medium ${isActive ? 'text-blue-600' : isCompleted ? 'text-green-600' : 'text-gray-400'
-                          }`}>
+                        <div className={`text-sm font-medium ${isActive ? 'text-blue-600' : isCompleted ? 'text-green-600' : 'text-gray-400'}`}>
                           {step.title}
                         </div>
                         <div className="text-xs text-gray-500">{step.description}</div>
@@ -598,7 +553,6 @@ const CreateStore = () => {
             </div>
           </div>
 
-          {/* Form Content */}
           <div className="p-8">
             <div className="mb-8">
               <h2 className="text-xl font-semibold text-gray-900 mb-2">
@@ -609,7 +563,6 @@ const CreateStore = () => {
             {renderStepContent()}
           </div>
 
-          {/* Form Actions */}
           <div className="border-t border-gray-200 p-6 bg-gray-50">
             <div className="flex justify-between items-center">
               <div className="flex gap-3">
@@ -653,7 +606,6 @@ const CreateStore = () => {
           </div>
         </div>
 
-        {/* Preview Modal */}
         {showPreview && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
@@ -669,7 +621,6 @@ const CreateStore = () => {
                 </div>
               </div>
               <div className="p-8">
-                {/* Store Header */}
                 <div className="flex items-start mb-8 p-6 bg-gray-50 rounded-lg">
                   {selectedFile && (
                     <img
@@ -679,7 +630,12 @@ const CreateStore = () => {
                     />
                   )}
                   <div className="flex-1">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">{formData.name || 'Store Name'}</h2>
+                    <div className="flex items-center gap-2 mb-2">
+                      <h2 className="text-2xl font-bold text-gray-900">{formData.name || 'Store Name'}</h2>
+                      {formData.isFeatured && (
+                        <Star className="w-6 h-6 text-yellow-500 fill-yellow-500" />
+                      )}
+                    </div>
                     <p className="text-lg text-gray-600 mb-2">{formData.storeTitle || 'Store Title'}</p>
                     {formData.storeDealInfo && (
                       <span className="inline-block bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium mb-2">
@@ -687,10 +643,17 @@ const CreateStore = () => {
                       </span>
                     )}
                     <p className="text-sm text-gray-500">/{formData.slug || 'store-slug'}</p>
+                    <div className="flex gap-2 mt-2">
+                      {formData.isActive && (
+                        <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">Active</span>
+                      )}
+                      {formData.isFeatured && (
+                        <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full">Featured</span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                {/* Store Description */}
                 {formData.description && (
                   <div className="mb-8">
                     <h4 className="font-semibold text-gray-900 mb-3">About This Store</h4>
@@ -698,7 +661,6 @@ const CreateStore = () => {
                   </div>
                 )}
 
-                {/* Store Links */}
                 <div className="flex flex-wrap gap-4 mb-8">
                   {formData.websiteUrl && (
                     <button className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all font-medium inline-flex items-center gap-2">
@@ -714,7 +676,6 @@ const CreateStore = () => {
                   )}
                 </div>
 
-                {/* FAQ Section */}
                 {faqs.some(faq => faq.question.trim() && faq.answer.trim()) && (
                   <div className="mb-8">
                     <h4 className="font-semibold text-gray-900 mb-4">Frequently Asked Questions</h4>
@@ -733,7 +694,6 @@ const CreateStore = () => {
                   </div>
                 )}
 
-                {/* SEO Preview */}
                 <div className="bg-gray-50 p-6 rounded-lg">
                   <h4 className="font-semibold text-gray-900 mb-4">SEO Preview</h4>
                   <div className="bg-white p-4 rounded-lg border">
