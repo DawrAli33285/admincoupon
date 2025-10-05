@@ -25,21 +25,13 @@ const CreateCoupon = () => {
 
   const [errors, setErrors] = useState({});
   const [previewImage, setPreviewImage] = useState(null);
-
-  // Toggle between select and custom input for store name
   const [storeInputType, setStoreInputType] = useState('select');
+
   const toggleStoreInput = () => {
     setStoreInputType((prev) => (prev === 'select' ? 'custom' : 'select'));
     setFormData((prev) => ({ ...prev, storeName: '', customStoreName: '' }));
   };
 
-  // Sample store data
-  const stores = [
-    'Amazon', 'Walmart', 'Target', 'Best Buy', 'Nike', 'Adidas', 
-    'Apple', 'Samsung', 'Dell', 'HP', 'Other'
-  ];
-
-  // Handle form input changes
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData(prev => ({
@@ -47,7 +39,6 @@ const CreateCoupon = () => {
       [name]: type === 'checkbox' ? checked : value
     }));
 
-    // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
@@ -56,11 +47,10 @@ const CreateCoupon = () => {
     }
   };
 
-  // Handle image upload
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+      if (file.size > 5 * 1024 * 1024) {
         setErrors(prev => ({
           ...prev,
           bannerImage: 'Image size must be less than 5MB'
@@ -84,7 +74,6 @@ const CreateCoupon = () => {
     }
   };
 
-  // Remove uploaded image
   const removeImage = () => {
     setPreviewImage(null);
     setFormData(prev => ({
@@ -93,7 +82,6 @@ const CreateCoupon = () => {
     }));
   };
 
-  // Validate form
   const validateForm = () => {
     const newErrors = {};
 
@@ -129,6 +117,10 @@ const CreateCoupon = () => {
       newErrors.startDate = 'Start date is required';
     }
 
+    if (!formData.endDate) {
+      newErrors.endDate = 'End date is required';
+    }
+
     if (!formData.storeName) {
       newErrors.storeName = 'Store selection is required';
     }
@@ -141,17 +133,12 @@ const CreateCoupon = () => {
       newErrors.bannerImage = 'Banner image is required for featured coupons';
     }
 
-    // If no end date, expiry soon should be enabled
-    if (!formData.endDate && !formData.expirySoon) {
-      newErrors.expirySoon = 'Enable "Expiry Soon" if no end date is provided';
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   useEffect(()=>{
-getStoresData();
+    getStoresData();
   },[])
 
   const getStoresData = async () => {
@@ -159,7 +146,7 @@ getStoresData();
     
     if (!token) {
       console.error('No admin token found');
-      throw new Error('Authentication required');
+      return;
     }
     
     try {
@@ -171,119 +158,109 @@ getStoresData();
         }
       });
       const data = await response.json();
-   console.log("GET STORES")
-      console.log(data)
+      console.log("GET STORES", data)
       setStoresData(data)
-      // ... rest of the code
     } catch (e) {
-      // ... error handling
       console.log(e.message)
     }
   };
 
-  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
    
-    
+    if (!validateForm()) {
+      alert('Please fix all errors before submitting');
+      return;
+    }
    
-      try {
-        // Create FormData for multipart/form-data (required for file uploads)
-        const form_data = new FormData();
-        
-        // Append all form fields with backend property names
-        form_data.append('title', formData.couponTitle);
-        form_data.append('description', formData.shortDescription);
-        form_data.append('code', formData.code);
-        form_data.append('deepLink', formData.deepLink);
-        
-        // Handle metaKeywords array
-        if (formData.metaKeywords) {
-          const keywordsArray = formData.metaKeywords.split(',').map(keyword => keyword.trim());
-          keywordsArray.forEach((keyword, index) => {
-            form_data.append(`metaKeywords[${index}]`, keyword);
-          });
-        }
-        
-        form_data.append('metaDescription', formData.metaDescription);
-        form_data.append('discountType', formData.discountType);
-        form_data.append('discountValue', parseFloat(formData.discountValue));
-        form_data.append('startDate', formData.startDate);
-        form_data.append('endDate', formData.endDate);
-        form_data.append('isFeatured', formData.featured);
-        form_data.append('isExclusive', formData.exclusive);
-        form_data.append('isVerified', formData.verified);
-        form_data.append('isExpirySoon', formData.expirySoon);
-        form_data.append('storeId', formData.storeName); // Assuming this contains the store ID
-        form_data.append('termsConditions', formData.termsConditions);
-        
-        // Handle file upload
-        if (formData.bannerImage) {
-          form_data.append('bannerImage', formData.bannerImage);
-        }
-        
-        // Add optional fields
-        const couponType = formData.featured ? 'featured' : 
-                          formData.exclusive ? 'exclusive' : 
-                          formData.verified ? 'verified' : 'regular';
-        form_data.append('couponType', couponType);
-        form_data.append('displayTitle', formData.couponTitle);
-        
-        // Generate and append slug
-        const slug = formData.couponTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-        form_data.append('slug', slug);
-        
-        // Add createdBy if you have user context
-        // form_data.append('createdBy', userId);
-let token=localStorage.getItem('adminToken')
-        // Make API call with FormData (don't set Content-Type header, let browser set it)
-        const response = await fetch('https://couponbackend.vercel.app/admin/api/coupon', {
-          method: 'POST',
-          // Don't set Content-Type header for FormData - browser will set it with boundary
-          headers: {
-            // Add authentication headers if needed
-            'Authorization': `Bearer ${token}`,
-          },
-          body: form_data
+    try {
+      const form_data = new FormData();
+      
+      form_data.append('title', formData.couponTitle);
+      form_data.append('description', formData.shortDescription);
+      form_data.append('code', formData.code);
+      form_data.append('deepLink', formData.deepLink);
+      
+      if (formData.metaKeywords) {
+        const keywordsArray = formData.metaKeywords.split(',').map(keyword => keyword.trim());
+        keywordsArray.forEach((keyword, index) => {
+          form_data.append(`metaKeywords[${index}]`, keyword);
         });
-  console.log(response)
-        if (response.ok) {
-          const result = await response.json();
-          console.log('Coupon created successfully:', result);
-          alert('Coupon saved successfully!');
-          
-          // Reset form after successful submission
-          setFormData({
-            couponTitle: '',
-            code: '',
-            deepLink: '',
-            metaKeywords: '',
-            metaDescription: '',
-            discountType: 'percentage',
-            discountValue: '',
-            startDate: '',
-            endDate: '',
-            featured: false,
-            exclusive: false,
-            verified: false,
-            expirySoon: false,
-            storeName: '',
-            termsConditions: '',
-            shortDescription: '',
-            bannerImage: null
-          });
-        } else {
-          const errorData = await response.json();
-          console.error('Error creating coupon:', errorData);
-          alert(`Error: ${errorData.message || 'Failed to save coupon'}`);
-        }
-      } catch (error) {
-        console.error('Network error:', error.message);
-        alert('Network error: Unable to save coupon');
       }
-    
+      
+      form_data.append('metaDescription', formData.metaDescription);
+      form_data.append('discountType', formData.discountType);
+      form_data.append('discountValue', parseFloat(formData.discountValue));
+      form_data.append('startDate', formData.startDate);
+      form_data.append('endDate', formData.endDate);
+      form_data.append('isFeatured', formData.featured);
+      form_data.append('isExclusive', formData.exclusive);
+      form_data.append('isVerified', formData.verified);
+      form_data.append('isExpirySoon', formData.expirySoon);
+      form_data.append('storeId', formData.storeName);
+      form_data.append('termsConditions', formData.termsConditions);
+      
+      if (formData.bannerImage) {
+        form_data.append('bannerImage', formData.bannerImage);
+      }
+      
+      const couponType = formData.featured ? 'featured' : 
+                        formData.exclusive ? 'exclusive' : 
+                        formData.verified ? 'verified' : 'regular';
+      form_data.append('couponType', couponType);
+      form_data.append('displayTitle', formData.couponTitle);
+      
+      const slug = formData.couponTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      form_data.append('slug', slug);
+      
+      let token = localStorage.getItem('adminToken')
+
+      const response = await fetch('https://couponbackend.vercel.app/admin/api/coupon', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: form_data
+      });
+
+      console.log(response)
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Coupon created successfully:', result);
+        alert('Coupon saved successfully!');
+        
+        setFormData({
+          couponTitle: '',
+          code: '',
+          deepLink: '',
+          metaKeywords: '',
+          metaDescription: '',
+          discountType: 'percentage',
+          discountValue: '',
+          startDate: '',
+          endDate: '',
+          featured: false,
+          exclusive: false,
+          verified: false,
+          expirySoon: false,
+          storeName: '',
+          termsConditions: '',
+          shortDescription: '',
+          bannerImage: null
+        });
+        setPreviewImage(null);
+      } else {
+        const errorData = await response.json();
+        console.error('Error creating coupon:', errorData);
+        alert(`Error: ${errorData.message || 'Failed to save coupon'}`);
+      }
+    } catch (error) {
+      console.error('Network error:', error.message);
+      alert('Network error: Unable to save coupon');
+    }
   };
-  // Auto-generate code from title
+
   const generateCode = () => {
     const code = formData.couponTitle
       .toUpperCase()
@@ -300,7 +277,6 @@ let token=localStorage.getItem('adminToken')
       </div>
 
       <div className="space-y-8">
-        {/* Basic Information */}
         <div className="bg-gray-50 p-6 rounded-lg">
           <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
             <Tag className="w-5 h-5 mr-2" />
@@ -348,7 +324,7 @@ let token=localStorage.getItem('adminToken')
                 <button
                   type="button"
                   onClick={generateCode}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-r-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-r-md hover:bg-blue-700"
                 >
                   Generate
                 </button>
@@ -385,7 +361,6 @@ let token=localStorage.getItem('adminToken')
           </div>
         </div>
 
-        {/* SEO Information */}
         <div className="bg-gray-50 p-6 rounded-lg">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">SEO & Frontend Display</h2>
           
@@ -485,7 +460,6 @@ let token=localStorage.getItem('adminToken')
           </div>
         </div>
 
-        {/* Discount Information */}
         <div className="bg-gray-50 p-6 rounded-lg">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">Discount Details</h2>
           
@@ -537,7 +511,6 @@ let token=localStorage.getItem('adminToken')
           </div>
         </div>
 
-        {/* Date Management */}
         <div className="bg-gray-50 p-6 rounded-lg">
           <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
             <Calendar className="w-5 h-5 mr-2" />
@@ -568,49 +541,48 @@ let token=localStorage.getItem('adminToken')
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                End Date
+                End Date *
               </label>
               <input
                 type="date"
                 name="endDate"
                 value={formData.endDate}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.endDate ? 'border-red-500' : 'border-gray-300'
+                }`}
               />
-            </div>
-          </div>
-
-          {!formData.endDate && (
-            <div className="mt-4">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  name="expirySoon"
-                  checked={formData.expirySoon}
-                  onChange={handleInputChange}
-                  className="mr-2"
-                />
-                <span className="text-sm font-medium text-gray-700 flex items-center">
-                  <Clock className="w-4 h-4 mr-1" />
-                  Mark as "Expiry Soon"
-                </span>
-              </label>
-              {errors.expirySoon && (
+              {errors.endDate && (
                 <p className="text-red-500 text-sm mt-1 flex items-center">
                   <AlertCircle className="w-4 h-4 mr-1" />
-                  {errors.expirySoon}
+                  {errors.endDate}
                 </p>
               )}
             </div>
-          )}
+          </div>
+
+          <div className="mt-4">
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                name="expirySoon"
+                checked={formData.expirySoon}
+                onChange={handleInputChange}
+                className="mr-2"
+              />
+              <span className="text-sm font-medium text-gray-700 flex items-center">
+                <Clock className="w-4 h-4 mr-1" />
+                Mark as "Expiry Soon"
+              </span>
+            </label>
+          </div>
         </div>
 
-        {/* Status Toggles */}
         <div className="bg-gray-50 p-6 rounded-lg">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">Status & Visibility</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <label className="flex items-center p-4 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50">
+            <label className="flex items-center p-4 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-100">
               <input
                 type="checkbox"
                 name="featured"
@@ -627,7 +599,7 @@ let token=localStorage.getItem('adminToken')
               </div>
             </label>
 
-            <label className="flex items-center p-4 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50">
+            <label className="flex items-center p-4 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-100">
               <input
                 type="checkbox"
                 name="exclusive"
@@ -644,7 +616,7 @@ let token=localStorage.getItem('adminToken')
               </div>
             </label>
 
-            <label className="flex items-center p-4 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50">
+            <label className="flex items-center p-4 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-100">
               <input
                 type="checkbox"
                 name="verified"
@@ -672,7 +644,6 @@ let token=localStorage.getItem('adminToken')
           )}
         </div>
 
-        {/* Content */}
         <div className="bg-gray-50 p-6 rounded-lg">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">Content</h2>
           
@@ -715,7 +686,6 @@ let token=localStorage.getItem('adminToken')
           </div>
         </div>
 
-        {/* Banner Image */}
         <div className="bg-gray-50 p-6 rounded-lg">
           <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
             <Upload className="w-5 h-5 mr-2" />
@@ -770,18 +740,17 @@ let token=localStorage.getItem('adminToken')
           </div>
         </div>
 
-        {/* Submit Button */}
         <div className="flex justify-end space-x-4 pt-6 border-t">
           <button
             type="button"
-            className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
+            className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
           >
             Save as Draft
           </button>
           <button
             type="button"
             onClick={handleSubmit}
-            className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
           >
             Publish Coupon
           </button>
