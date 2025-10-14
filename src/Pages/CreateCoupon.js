@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, Upload, X, Check, AlertCircle, Tag, Star, Shield, Clock } from 'lucide-react';
 
 const CreateCoupon = () => {
-  const [storesData,setStoresData]=useState([])
+  const [storesData, setStoresData] = useState([]);
   const [formData, setFormData] = useState({
     couponTitle: '',
     code: '',
@@ -23,7 +23,6 @@ const CreateCoupon = () => {
     bannerImage: null
   });
 
-  const [errors, setErrors] = useState({});
   const [previewImage, setPreviewImage] = useState(null);
   const [storeInputType, setStoreInputType] = useState('select');
 
@@ -38,23 +37,13 @@ const CreateCoupon = () => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
-
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
-    }
   };
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
-        setErrors(prev => ({
-          ...prev,
-          bannerImage: 'Image size must be less than 5MB'
-        }));
+        alert('Image size must be less than 5MB');
         return;
       }
 
@@ -64,10 +53,6 @@ const CreateCoupon = () => {
         setFormData(prev => ({
           ...prev,
           bannerImage: file
-        }));
-        setErrors(prev => ({
-          ...prev,
-          bannerImage: ''
         }));
       };
       reader.readAsDataURL(file);
@@ -82,64 +67,9 @@ const CreateCoupon = () => {
     }));
   };
 
-  const validateForm = () => {
-    const newErrors = {};
-
-    if (!formData.couponTitle.trim()) {
-      newErrors.couponTitle = 'Coupon title is required';
-    }
-
-    if (!formData.code.trim()) {
-      newErrors.code = 'Coupon code is required';
-    }
-
-    if (!formData.deepLink.trim()) {
-      newErrors.deepLink = 'Deep link is required';
-    } else if (!/^https?:\/\/.+/.test(formData.deepLink)) {
-      newErrors.deepLink = 'Please enter a valid URL';
-    }
-
-    if (!formData.metaDescription.trim()) {
-      newErrors.metaDescription = 'Meta description is required for SEO';
-    } else if (formData.metaDescription.length > 160) {
-      newErrors.metaDescription = 'Meta description should be under 160 characters';
-    }
-
-    if (!formData.discountValue || formData.discountValue <= 0) {
-      newErrors.discountValue = 'Discount value must be greater than 0';
-    }
-
-    if (formData.discountType === 'percentage' && formData.discountValue > 100) {
-      newErrors.discountValue = 'Percentage cannot exceed 100%';
-    }
-
-    if (!formData.startDate) {
-      newErrors.startDate = 'Start date is required';
-    }
-
-    if (!formData.endDate) {
-      newErrors.endDate = 'End date is required';
-    }
-
-    if (!formData.storeName) {
-      newErrors.storeName = 'Store selection is required';
-    }
-
-    if (!formData.shortDescription.trim()) {
-      newErrors.shortDescription = 'Short description is required for modal display';
-    }
-
-    if (formData.featured && !formData.bannerImage) {
-      newErrors.bannerImage = 'Banner image is required for featured coupons';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  useEffect(()=>{
+  useEffect(() => {
     getStoresData();
-  },[])
+  }, []);
 
   const getStoresData = async () => {
     let token = localStorage.getItem("adminToken");
@@ -158,47 +88,78 @@ const CreateCoupon = () => {
         }
       });
       const data = await response.json();
-      console.log("GET STORES", data)
-      setStoresData(data)
+      console.log("GET STORES", data);
+      setStoresData(data);
     } catch (e) {
-      console.log(e.message)
+      console.log(e.message);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
    
-    if (!validateForm()) {
-      alert('Please fix all errors before submitting');
-      return;
-    }
-   
     try {
       const form_data = new FormData();
       
-      form_data.append('title', formData.couponTitle);
-      form_data.append('description', formData.shortDescription);
-      form_data.append('code', formData.code);
-      form_data.append('deepLink', formData.deepLink);
+      // Only append non-empty fields
+      if (formData.couponTitle.trim()) {
+        form_data.append('title', formData.couponTitle);
+        form_data.append('displayTitle', formData.couponTitle);
+        
+        // Generate slug from title
+        const slug = formData.couponTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        form_data.append('slug', slug);
+      }
       
-      if (formData.metaKeywords) {
-        const keywordsArray = formData.metaKeywords.split(',').map(keyword => keyword.trim());
+      if (formData.shortDescription.trim()) {
+        form_data.append('description', formData.shortDescription);
+      }
+      
+      if (formData.code.trim()) {
+        form_data.append('code', formData.code);
+      }
+      
+      if (formData.deepLink.trim()) {
+        form_data.append('deepLink', formData.deepLink);
+      }
+      
+      if (formData.metaKeywords.trim()) {
+        const keywordsArray = formData.metaKeywords.split(',').map(keyword => keyword.trim()).filter(k => k);
         keywordsArray.forEach((keyword, index) => {
           form_data.append(`metaKeywords[${index}]`, keyword);
         });
       }
       
-      form_data.append('metaDescription', formData.metaDescription);
+      if (formData.metaDescription.trim()) {
+        form_data.append('metaDescription', formData.metaDescription);
+      }
+      
       form_data.append('discountType', formData.discountType);
-      form_data.append('discountValue', parseFloat(formData.discountValue));
-      form_data.append('startDate', formData.startDate);
-      form_data.append('endDate', formData.endDate);
+      
+      if (formData.discountValue && parseFloat(formData.discountValue) > 0) {
+        form_data.append('discountValue', parseFloat(formData.discountValue));
+      }
+      
+      if (formData.startDate) {
+        form_data.append('startDate', formData.startDate);
+      }
+      
+      if (formData.endDate) {
+        form_data.append('endDate', formData.endDate);
+      }
+      
       form_data.append('isFeatured', formData.featured);
       form_data.append('isExclusive', formData.exclusive);
       form_data.append('isVerified', formData.verified);
       form_data.append('isExpirySoon', formData.expirySoon);
-      form_data.append('storeId', formData.storeName);
-      form_data.append('termsConditions', formData.termsConditions);
+      
+      if (formData.storeName) {
+        form_data.append('storeId', formData.storeName);
+      }
+      
+      if (formData.termsConditions.trim()) {
+        form_data.append('termsConditions', formData.termsConditions);
+      }
       
       if (formData.bannerImage) {
         form_data.append('bannerImage', formData.bannerImage);
@@ -208,12 +169,8 @@ const CreateCoupon = () => {
                         formData.exclusive ? 'exclusive' : 
                         formData.verified ? 'verified' : 'regular';
       form_data.append('couponType', couponType);
-      form_data.append('displayTitle', formData.couponTitle);
       
-      const slug = formData.couponTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-      form_data.append('slug', slug);
-      
-      let token = localStorage.getItem('adminToken')
+      let token = localStorage.getItem('adminToken');
 
       const response = await fetch('https://couponbackend.vercel.app/admin/api/coupon', {
         method: 'POST',
@@ -223,13 +180,14 @@ const CreateCoupon = () => {
         body: form_data
       });
 
-      console.log(response)
+      console.log(response);
 
       if (response.ok) {
         const result = await response.json();
         console.log('Coupon created successfully:', result);
         alert('Coupon saved successfully!');
         
+        // Reset form
         setFormData({
           couponTitle: '',
           code: '',
@@ -286,29 +244,21 @@ const CreateCoupon = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Coupon Title *
+                Coupon Title
               </label>
               <input
                 type="text"
                 name="couponTitle"
                 value={formData.couponTitle}
                 onChange={handleInputChange}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.couponTitle ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="e.g., Summer Sale 50% Off"
               />
-              {errors.couponTitle && (
-                <p className="text-red-500 text-sm mt-1 flex items-center">
-                  <AlertCircle className="w-4 h-4 mr-1" />
-                  {errors.couponTitle}
-                </p>
-              )}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Coupon Code *
+                Coupon Code
               </label>
               <div className="flex">
                 <input
@@ -316,9 +266,7 @@ const CreateCoupon = () => {
                   name="code"
                   value={formData.code}
                   onChange={handleInputChange}
-                  className={`flex-1 px-3 py-2 border rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.code ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="SUMMER50"
                 />
                 <button
@@ -329,35 +277,21 @@ const CreateCoupon = () => {
                   Generate
                 </button>
               </div>
-              {errors.code && (
-                <p className="text-red-500 text-sm mt-1 flex items-center">
-                  <AlertCircle className="w-4 h-4 mr-1" />
-                  {errors.code}
-                </p>
-              )}
             </div>
           </div>
 
           <div className="mt-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Deep Link *
+              Deep Link
             </label>
             <input
               type="url"
               name="deepLink"
               value={formData.deepLink}
               onChange={handleInputChange}
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.deepLink ? 'border-red-500' : 'border-gray-300'
-              }`}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="https://store.com/promo/summer50"
             />
-            {errors.deepLink && (
-              <p className="text-red-500 text-sm mt-1 flex items-center">
-                <AlertCircle className="w-4 h-4 mr-1" />
-                {errors.deepLink}
-              </p>
-            )}
           </div>
         </div>
 
@@ -382,28 +316,19 @@ const CreateCoupon = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Meta Description *
+                Meta Description
               </label>
               <textarea
                 name="metaDescription"
                 value={formData.metaDescription}
                 onChange={handleInputChange}
                 rows="3"
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.metaDescription ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Save big with our exclusive summer sale coupon. Get up to 50% off on selected items."
               />
               <div className="flex justify-between items-center mt-1">
-                {errors.metaDescription ? (
-                  <p className="text-red-500 text-sm flex items-center">
-                    <AlertCircle className="w-4 h-4 mr-1" />
-                    {errors.metaDescription}
-                  </p>
-                ) : (
-                  <p className="text-sm text-gray-500">Optimal length: 120-160 characters</p>
-                )}
-                <span className={`text-sm ${formData.metaDescription.length > 160 ? 'text-red-500' : 'text-gray-500'}`}>
+                <p className="text-sm text-gray-500">Optimal length: 120-160 characters</p>
+                <span className={`text-sm ${formData.metaDescription.length > 160 ? 'text-orange-500' : 'text-gray-500'}`}>
                   {formData.metaDescription.length}/160
                 </span>
               </div>
@@ -412,7 +337,7 @@ const CreateCoupon = () => {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="block text-sm font-medium text-gray-700">
-                  Store Name * <span className="text-gray-500">(shown on frontend)</span>
+                  Store Name <span className="text-gray-500">(shown on frontend)</span>
                 </label>
                 <button
                   type="button"
@@ -428,9 +353,7 @@ const CreateCoupon = () => {
                   name="storeName"
                   value={formData.storeName}
                   onChange={handleInputChange}
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.storeName ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Select a store</option>
                   {storesData?.map((store) => (
@@ -443,18 +366,9 @@ const CreateCoupon = () => {
                   name="customStoreName"
                   value={formData.customStoreName || ''}
                   onChange={handleInputChange}
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.storeName ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter custom store name"
                 />
-              )}
-              
-              {errors.storeName && (
-                <p className="text-red-500 text-sm mt-1 flex items-center">
-                  <AlertCircle className="w-4 h-4 mr-1" />
-                  {errors.storeName}
-                </p>
               )}
             </div>
           </div>
@@ -466,7 +380,7 @@ const CreateCoupon = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Discount Type *
+                Discount Type
               </label>
               <select
                 name="discountType"
@@ -483,7 +397,7 @@ const CreateCoupon = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Discount Value *
+                Discount Value
               </label>
               <div className="relative">
                 <input
@@ -491,9 +405,7 @@ const CreateCoupon = () => {
                   name="discountValue"
                   value={formData.discountValue}
                   onChange={handleInputChange}
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.discountValue ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="50"
                   min="0"
                 />
@@ -501,12 +413,6 @@ const CreateCoupon = () => {
                   {formData.discountType === 'percentage' ? '%' : formData.discountType === 'fixed' ? '$' : ''}
                 </span>
               </div>
-              {errors.discountValue && (
-                <p className="text-red-500 text-sm mt-1 flex items-center">
-                  <AlertCircle className="w-4 h-4 mr-1" />
-                  {errors.discountValue}
-                </p>
-              )}
             </div>
           </div>
         </div>
@@ -520,44 +426,28 @@ const CreateCoupon = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Start Date *
+                Start Date
               </label>
               <input
                 type="date"
                 name="startDate"
                 value={formData.startDate}
                 onChange={handleInputChange}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.startDate ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-              {errors.startDate && (
-                <p className="text-red-500 text-sm mt-1 flex items-center">
-                  <AlertCircle className="w-4 h-4 mr-1" />
-                  {errors.startDate}
-                </p>
-              )}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                End Date *
+                End Date
               </label>
               <input
                 type="date"
                 name="endDate"
                 value={formData.endDate}
                 onChange={handleInputChange}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.endDate ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-              {errors.endDate && (
-                <p className="text-red-500 text-sm mt-1 flex items-center">
-                  <AlertCircle className="w-4 h-4 mr-1" />
-                  {errors.endDate}
-                </p>
-              )}
             </div>
           </div>
 
@@ -638,7 +528,7 @@ const CreateCoupon = () => {
             <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
               <p className="text-sm text-blue-800">
                 <Star className="w-4 h-4 inline mr-1" />
-                Featured coupons will appear on the homepage with appropriate tags and require a banner image.
+                Featured coupons will appear on the homepage with appropriate tags.
               </p>
             </div>
           )}
@@ -650,24 +540,16 @@ const CreateCoupon = () => {
           <div className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Short Description * <span className="text-gray-500">(for modal display)</span>
+                Short Description <span className="text-gray-500">(for modal display)</span>
               </label>
               <textarea
                 name="shortDescription"
                 value={formData.shortDescription}
                 onChange={handleInputChange}
                 rows="3"
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.shortDescription ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Brief description of the offer for popup display"
               />
-              {errors.shortDescription && (
-                <p className="text-red-500 text-sm mt-1 flex items-center">
-                  <AlertCircle className="w-4 h-4 mr-1" />
-                  {errors.shortDescription}
-                </p>
-              )}
             </div>
 
             <div>
@@ -689,7 +571,7 @@ const CreateCoupon = () => {
         <div className="bg-gray-50 p-6 rounded-lg">
           <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
             <Upload className="w-5 h-5 mr-2" />
-            Banner Image {formData.featured && <span className="text-red-500 ml-1">*</span>}
+            Banner Image
           </h2>
           
           <div className="space-y-4">
@@ -729,13 +611,6 @@ const CreateCoupon = () => {
                   <X className="w-4 h-4" />
                 </button>
               </div>
-            )}
-            
-            {errors.bannerImage && (
-              <p className="text-red-500 text-sm flex items-center">
-                <AlertCircle className="w-4 h-4 mr-1" />
-                {errors.bannerImage}
-              </p>
             )}
           </div>
         </div>
